@@ -17,6 +17,7 @@ try {
     if ($active) { throw 'Close this bundle''s PCL window and game, then reopen Start.cmd to synchronize safely.' }
     $lock = [IO.File]::Open((Join-Path $Root '.start.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     try {
+        $launcherHash = Initialize-PclProtection
         Write-ClientProgress 2 '核对服务器版本' '正在获取最新发布清单，请保持网络连接'
         $channel = Get-Channel
         $script:ReleaseLabel = 'MC '+$channel.minecraft+'  /  NeoForge '+$channel.neoforge+'  /  整合包 '+$channel.release
@@ -55,6 +56,7 @@ try {
         $env:JAVA_HOME = Split-Path (Split-Path $Java -Parent) -Parent
         $env:PATH = (Split-Path $Java -Parent)+';'+$env:PATH
         Write-ClientProgress 4 '准备打开 PCL' '版本与模组已对齐，即将交给启动器'
+        Assert-PclUnchanged $launcherHash
         if (!$PrepareOnly) { Start-Process -FilePath $launcher -WorkingDirectory (Split-Path $launcher) }
         $finishedDetail = if ($PrepareOnly) { '文件检查已完成，本次未打开 PCL。' } else { 'PCL 已打开。登录账号后，点击「启动游戏」。' }
         Write-ClientProgress 4 '准备就绪' $finishedDetail -State 'complete'

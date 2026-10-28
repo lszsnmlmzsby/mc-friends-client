@@ -5,6 +5,7 @@ The generated release preserves personal options; gameplay configs stay managed.
 """
 import argparse, concurrent.futures, hashlib, json, shutil, time, urllib.request
 from pathlib import Path, PurePosixPath
+from fool_customizations import CONFIG, apply_customizations
 
 BASE_URL = 'https://friends-mc-downloads-1318356926.cos.ap-beijing.myqcloud.com/friends-mc/packs/fool'
 
@@ -69,6 +70,9 @@ def build(source, server, output, release, base_url=BASE_URL):
     inventory={x['path'] for x in manifest['files']}
     inventory.update(f.relative_to(source/'overrides').as_posix() for f in (source/'overrides').rglob('*') if f.is_file()
         and f.relative_to(source/'overrides').parts[0] in allowed and f.name!='embeddium-fingerprint.json')
+    if CONFIG.as_posix() not in inventory:
+        raise ValueError('Upstream pack is missing '+CONFIG.as_posix()+'; review book retention compatibility')
+    inventory.update(apply_customizations(game))
     quote=lambda x:json.dumps(x,ensure_ascii=False)
     for rel in sorted(inventory):
         f=safe(game,rel); sha=digest(f); size=f.stat().st_size

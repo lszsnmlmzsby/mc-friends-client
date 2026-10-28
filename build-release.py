@@ -17,6 +17,12 @@ def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding='utf-8')
 
+def disable_pcl_auto_download(client):
+    settings = client/'launcher/PCL/Setup.ini'
+    lines = settings.read_text(encoding='utf-8-sig').splitlines() if settings.exists() else []
+    lines = [line for line in lines if not line.startswith('SystemSystemUpdate:')]
+    write(settings, '\n'.join([*lines, 'SystemSystemUpdate:1', '']))
+
 def build(cache, destination):
     if destination.exists():
         raise RuntimeError('Output directory already exists; use a fresh directory.')
@@ -51,6 +57,7 @@ def build(cache, destination):
             shutil.copy2(archive,client/'tools'/name)
     if hashlib.sha256((client/'launcher/Plain Craft Launcher 2.exe').read_bytes()).hexdigest() != sources['PCL']['exeSha256']:
         raise RuntimeError('Unexpected PCL executable in official archive')
+    disable_pcl_auto_download(client)
     def nbtstr(s):
         b=s.encode(); return struct.pack('>H',len(b))+b
     data=b'\x0a\x00\x00\x09'+nbtstr('servers')+b'\x0a'+struct.pack('>i',1)

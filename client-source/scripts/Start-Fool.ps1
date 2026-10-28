@@ -28,6 +28,7 @@ try {
     if ($active) {throw '请先关闭此客户端的 PCL 和游戏，再运行 Start。'}
     $lock=[IO.File]::Open((Join-Path $Root '.start.lock'),'OpenOrCreate','ReadWrite','None')
     try {
+        $launcherHash = Initialize-PclProtection
         New-Item -ItemType Directory -Force -Path (Join-Path $Root 'state') | Out-Null
         $channelFile=Join-Path $Root 'state/fool-channel.json'
         Write-ClientProgress 2 '愚者 · 核对版本' '读取国内更新清单'
@@ -69,6 +70,7 @@ try {
             Move-Item -LiteralPath $temp -Destination $pending
         } else {Set-PclIni (Join-Path $mcDir 'PCL.ini') 'Version' ($instance+'\')}
         Set-PclIni (Join-Path $Root 'launcher/PCL/Setup.ini') 'LaunchFolderSelect' ($mcDir+'\')
+        Assert-PclUnchanged $launcherHash
         if (!$PrepareOnly) {Start-Process -FilePath $launcher -WorkingDirectory (Split-Path $launcher)}
         $detail=if ($PrepareOnly) {'愚者同步完成，本次未打开 PCL。'} elseif (!$exists) {'请确认 PCL 首次导入，登录正版账号并选择愚者；进服前确认服主已切换服务器。'} else {'选择愚者实例启动；进服前确认服主已切换服务器。'}
         Write-ClientProgress 4 '愚者准备就绪' $detail -State 'complete'

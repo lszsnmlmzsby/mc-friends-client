@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $script:Root = Split-Path $PSScriptRoot -Parent
@@ -75,6 +75,38 @@ function Set-PclIni([string]$Path, [string]$Key, [string]$Value) {
     if (Test-Path -LiteralPath $Path) { $lines = @(Get-Content -LiteralPath $Path -Encoding UTF8 | Where-Object { !$_.StartsWith($Key+':') }) }
     $lines += $Key+':'+$Value
     [IO.File]::WriteAllLines($Path, [string[]]$lines, (New-Object Text.UTF8Encoding($false)))
+}
+function Show-PclUpdateNotice {
+    Add-Type -AssemblyName PresentationFramework
+    $message = @'
+近期 PCL2 更新后有无法下载 Minecraft 本体的反馈，请保留当前启动器版本。
+
+本次启动已禁止 PCL2 自动下载更新，仍保留新版本提示；整合包继续按文件增量同步。
+
+手动处理：先断网，直接打开 launcher\Plain Craft Launcher 2.exe，在「设置 → 启动器 → 启动器更新」选择「在有新版本时显示提示」，不要选择自动下载。退出启动器后恢复联网，再运行 Start。
+
+已经更新的 PCL2 不会自动降级，请勿手动检查或安装启动器更新。
+'@
+    [Windows.MessageBox]::Show($message, 'Friends MC · PCL2 兼容性提醒', 'OK', 'Warning') | Out-Null
+}
+function Initialize-PclProtection {
+    $launcher = Join-Path $Root 'launcher/Plain Craft Launcher 2.exe'
+    $hash = (Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash
+    $settings = Join-Path $Root 'launcher/PCL/Setup.ini'
+    # PCL 2.13.1.1: 0 = auto-download; 1 = notify without downloading.
+    Set-PclIni $settings 'SystemSystemUpdate' '1'
+    $saved = @(Get-Content -LiteralPath $settings -Encoding UTF8 | Where-Object { $_.StartsWith('SystemSystemUpdate:') })
+    if ($saved.Count -ne 1 -or $saved[0] -ne 'SystemSystemUpdate:1') {
+        throw '无法关闭 PCL2 自动更新，本次同步已停止。'
+    }
+    Show-PclUpdateNotice
+    return $hash
+}
+function Assert-PclUnchanged([string]$ExpectedHash) {
+    $launcher = Join-Path $Root 'launcher/Plain Craft Launcher 2.exe'
+    if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash -ne $ExpectedHash) {
+        throw '同步期间 PCL2 启动器文件发生变化，已停止启动。Friends MC 更新不得替换 PCL2。'
+    }
 }
 function New-PclImport($Channel, [string]$Id, [string]$Stage) {
     Write-ClientProgress 3 '准备首次安装文件' '正在打包 Java 与配置，完成后由 PCL 安装游戏'
